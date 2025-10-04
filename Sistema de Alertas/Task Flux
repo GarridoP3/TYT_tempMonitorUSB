@@ -1,0 +1,28 @@
+import "contrib/sranka/telegram"
+import "array"
+
+option task = {name: "Trigger t1 Compresor", every: 5s}
+
+token = "token" // Sustituir token
+channel = "chatid" // Sustituir chatid
+
+from(bucket: "bucket")
+    |> range(start: -1m)
+    |> filter(fn: (r) => r._measurement == "TYT_tempMonitor" and r._field == "t_1")
+    |> last()
+    |> filter(fn: (r) => exists r._value and r._value > 95.0) // Sustituir threshold
+    |> map(
+        fn: (r) =>
+            ({r with _msg:
+                    telegram.message(
+                        url: "https://api.telegram.org/bot",
+                        token: token,
+                        channel: channel,
+                        text: "<b>Alerta crítica</b> ${string(
+                                v: r._time,
+                            )} | Temperatura del Compresor t_1 = ${string(v: r._value)} °C",
+                        parseMode: "HTML",
+                    ),
+            }),
+    )
+    |> yield(name: "alerta_enviada")
